@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TermPlan — 专注与静谧的工作流</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #f4f3ef; 
+            color: #333333; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .morandi-card { 
+            background-color: #fafaf9; 
+            border: 1px solid rgba(189, 178, 166, 0.4); 
+            box-shadow: 0 10px 30px -5px rgba(138, 131, 124, 0.12);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .morandi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 35px -5px rgba(138, 131, 124, 0.18);
+            border-color: rgba(189, 178, 166, 0.6);
+        }
+        .morandi-input {
+            background-color: #f1ede7; 
+            border: 1px solid rgba(189, 178, 166, 0.5); 
+            color: #333333;
+            transition: all 0.3s ease;
+        }
+        .morandi-input:focus {
+            border-color: #7b94a1; 
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(156, 178, 188, 0.3);
+            outline: none;
+        }
+
+        .hl-0 { background-color: #e5e8e4; } 
+        .hl-1 { background-color: #b8c4b4; } 
+        .hl-2 { background-color: #92a48b; } 
+        .hl-3 { background-color: #718469; } 
+
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen px-6 py-10 md:px-12 flex flex-col justify-between">
+
+    <div id="toast-container" class="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 space-y-3 pointer-events-none w-80"></div>
+
+    <div id="ai-modal" class="fixed inset-0 bg-stone-950/20 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-all duration-300">
+        <div class="bg-[#f4f3ef] w-full max-w-sm h-[75vh] rounded-3xl shadow-2xl border border-stone-200/80 flex flex-col overflow-hidden relative m-4 morandi-card">
+            <div class="px-5 py-4 border-b border-stone-200/60 flex justify-between items-center bg-[#fafaf9]">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-[#9ab0bb] animate-pulse"></div>
+                    <h3 class="text-sm font-bold tracking-wider text-[#5a5a5a] font-mono">AI 顾问</h3>
+                </div>
+                <button onclick="closeAiModal()" class="text-[#a39a90] hover:text-[#c29490] text-lg font-bold transition-colors p-1" title="返回精简看板">✕</button>
+            </div>
+            <div id="modal-chat-box" class="flex-1 p-5 text-sm leading-relaxed space-y-4 overflow-y-auto no-scrollbar bg-[#fafaf9] text-[#4a4a4a]">
+                </div>
+            <div class="p-4 bg-[#fafaf9] border-t border-stone-200/60">
+                <div class="flex gap-2 bg-[#ffffff] p-1.5 rounded-xl border border-stone-200 shadow-sm">
+                    <input type="text" id="modal-chat-input" class="flex-1 bg-transparent px-3 py-2 text-sm text-[#2c2c2c] outline-none placeholder-[#a39a90] font-medium" placeholder="继续理清你的步调..." onkeydown="if(event.keyCode==13) sendChatMessage('modal')">
+                    <button onclick="sendChatMessage('modal')" class="bg-[#829ba7] hover:bg-[#728a95] text-white px-4 py-2 rounded-lg text-sm font-bold transition duration-300">倾诉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto w-full flex-1 space-y-8">
+
+        <header class="flex justify-between items-end border-b border-[#ded9d2] pb-6">
+            <div>
+                <h1 class="text-4xl font-normal tracking-wide text-[#2c2c2c] font-serif">TermPlan</h1>
+                <p class="text-sm text-[#7a736c] mt-2 tracking-wider">摒弃喧嚣，构建具备低干扰属性的极简复习环境。</p>
+            </div>
+            <div class="text-xs tracking-widest text-[#7a736c] uppercase bg-[#edeae4] px-3 py-1.5 rounded font-medium">
+                系统状态 / <span class="text-[#65765d] font-bold">静谧专注</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="morandi-card p-6 rounded-2xl bg-[#e0e5e8] border-none">
+                <p class="text-sm font-semibold text-[#5c6e77] tracking-wider font-mono">累计专注时长</p>
+                <p class="text-4xl font-normal text-[#3a4449] mt-3 tracking-tight">{{ stats.total_minutes }} <span class="text-base font-medium text-[#5c6e77]">分钟</span></p>
+            </div>
+            <div class="morandi-card p-6 rounded-2xl bg-[#dfd7cc] border-none shadow-sm">
+                <p class="text-sm font-semibold text-[#7a7066] tracking-wider font-mono">当前并行任务</p>
+                <p class="text-4xl font-normal text-[#4a4238] mt-3 tracking-tight">{{ stats.total_exams }} <span class="text-base font-medium text-[#7a7066]">项</span></p>
+            </div>
+            <div class="morandi-card p-6 rounded-2xl bg-[#e8d5d3] border-none">
+                <p class="text-sm font-semibold text-[#967976] tracking-wider font-mono">核心攻坚流域</p>
+                <p class="text-2xl font-medium text-[#594a48] mt-4 truncate">{{ stats.most_active }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <div class="lg:col-span-5">
+                <div class="morandi-card p-6 rounded-2xl space-y-6">
+                    <div>
+                        <h2 class="text-lg font-semibold text-[#2c2c2c]">控制台调度</h2>
+                        <p class="text-sm text-[#7a736c] mt-1">静静规划并部署你的期末复习里程碑。</p>
+                    </div>
+
+                    <form id="addForm" class="space-y-4">
+                        <input type="text" id="add-subject" class="morandi-input w-full rounded-xl px-4 py-3 text-sm placeholder-[#8c857d] font-medium" placeholder="科目名称 (如：Linux 系统管理)" required>
+                        <div class="grid grid-cols-2 gap-3">
+                            <select id="add-weight" class="morandi-input rounded-xl px-3 py-3 text-sm font-medium">
+                                <option value="3">权重: 3 (常规)</option>
+                                <option value="5">权重: 5 (核心硬核)</option>
+                                <option value="1">权重: 1 (考查课)</option>
+                            </select>
+                            <input type="date" id="add-ddl" class="morandi-input rounded-xl px-3 py-3 text-sm text-[#4a4641] font-medium" required>
+                        </div>
+                        <button type="submit" class="w-full bg-[#c29490] hover:bg-[#b0827e] text-white text-sm font-bold py-3.5 rounded-xl transition-all duration-300 shadow-md tracking-wide">部署复习目标</button>
+                    </form>
+
+                    <div class="border-t border-[#dcd8d1]"></div>
+
+                    <form id="punchForm" class="space-y-4">
+                        <select id="punch-subject" class="morandi-input w-full rounded-xl px-4 py-3 text-sm font-medium" required>
+                            <option value="" disabled selected class="text-[#8c857d]">请选择当前打卡科目</option>
+                            {% for exam in exams %}
+                                <option value="{{ exam['subject'] }}">{{ exam['subject'] }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="relative">
+                            <input type="number" id="punch-duration" class="morandi-input w-full rounded-xl px-4 py-3 text-sm font-mono font-bold" value="30" min="1" required>
+                            <span class="absolute right-4 top-3.5 text-xs font-bold font-mono text-[#7a736c]">分钟</span>
+                        </div>
+                        <button type="submit" class="w-full bg-[#829ba7] hover:bg-[#728a95] text-white text-sm font-bold py-3.5 rounded-xl transition-all duration-300 shadow-md tracking-wide">记录一次心流</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="lg:col-span-7 space-y-6">
+
+                <div class="morandi-card p-6 rounded-2xl">
+                    <h2 class="text-sm font-bold tracking-wider text-[#7a736c] mb-4 font-mono">活跃度热力矩阵</h2>
+                    <div class="flex flex-wrap gap-2.5 p-1">
+                        {% for day in past_30_days %}
+                            <div class="w-[32px] h-[32px] rounded-lg hl-{{ day.level }} transition-all duration-300 transform hover:scale-110 cursor-pointer relative group shadow-sm"
+                                 data-date="{{ day.date }}" data-dur="{{ day.duration }}">
+                                <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-[#333333] text-xs text-white font-sans px-3 py-1.5 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-30 font-medium">
+                                    {{ day.date }} · {{ day.duration }} 分钟
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                    <div class="morandi-card p-6 rounded-2xl flex flex-col h-[320px]">
+                        <h2 class="text-sm font-bold tracking-wider text-[#7a736c] mb-4 font-mono">时间轴监测</h2>
+                        <div class="space-y-3 overflow-y-auto flex-1 no-scrollbar pr-1">
+                            {% for exam in exams %}
+                            <div class="flex justify-between items-center bg-[#ffffff] p-4 rounded-xl border border-stone-200 shadow-sm transition-all group">
+                                <div class="truncate max-w-[120px]">
+                                    <div class="font-bold text-sm text-[#2c2c2c] truncate">{{ exam['subject'] }}</div>
+                                    <div class="text-xs text-[#7a736c] mt-1 font-mono font-medium">权重-{{ exam['weight'] }} · {{ exam['ddl'] }}</div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="text-right">
+                                        <span class="text-2xl font-normal {% if exam['days_left'] < 7 %}text-[#b05f59] font-bold{% else %}text-[#52604d]{% endif %} font-serif">{{ exam['days_left'] }}</span>
+                                        <span class="text-[10px] text-[#8c857d] block font-mono font-bold">天</span>
+                                    </div>
+                                    <button onclick="deleteExam('{{ exam['subject'] }}')" class="opacity-0 group-hover:opacity-100 text-[#a39a90] hover:text-[#c29490] text-lg transition duration-200 font-bold" title="移除此目标">✕</button>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="text-sm text-[#9c958d] text-center pt-24 font-serif italic">你的调度矩阵目前非常整洁。</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="morandi-card p-6 rounded-2xl flex flex-col h-[320px] cursor-pointer" onclick="openAiModalByClick(event)">
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2.5 h-2.5 rounded-full bg-[#9ab0bb]"></div>
+                                <h2 class="text-sm font-bold tracking-wider text-[#7a736c] font-mono">自适应 AI 顾问</h2>
+                            </div>
+                            <span class="text-xs text-[#829ba7] font-medium hover:underline tracking-wider select-none">点击展开 ↗</span>
+                        </div>
+
+                        <div id="chat-box" class="flex-1 text-sm leading-relaxed space-y-4 overflow-y-auto no-scrollbar mb-4 pr-2 text-[#4a4a4a]">
+                            <div class="bg-[#f6f4f1] p-3 rounded-lg border border-stone-100">
+                                <span class="text-[#657a85] font-bold">✨ 顾问:</span> 备考状态调和轴已建立。无论是感到焦虑，还是需要合理的动态排程建议，随时可以写在这里，我们一同理清步调。
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 bg-[#ffffff] p-1.5 rounded-xl border border-stone-200 shadow-sm" onclick="event.stopPropagation()">
+                            <input type="text" id="chat-input" class="flex-1 bg-transparent px-3 py-2 text-sm text-[#2c2c2c] outline-none placeholder-[#a39a90] font-medium" placeholder="写下当下的困惑..." onkeydown="if(event.keyCode==13) sendChatMessage('small')">
+                            <button onclick="sendChatMessage('small')" class="bg-[#829ba7] hover:bg-[#728a95] text-white px-4 py-2 rounded-lg text-sm font-bold transition duration-300">倾诉</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer class="max-w-6xl mx-auto w-full text-center text-xs text-[#9c958d] font-mono mt-12 pt-5 border-t border-[#ded9d2] font-medium">
+        TermPlan 终端考试复习规划助手
+    </footer>
+
+    <script>
+        // 初始化大窗聊天视图的内容
+        document.getElementById('modal-chat-box').innerHTML = document.getElementById('chat-box').innerHTML;
+
+        // 打开大弹窗函数
+        function openAiModal() {
+            const modal = document.getElementById('ai-modal');
+            if(modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.offsetHeight; // 触发回流以保证动画平滑
+                modal.classList.remove('opacity-0');
+            }
+            // 滚动到底部
+            const mBox = document.getElementById('modal-chat-box');
+            mBox.scrollTop = mBox.scrollHeight;
+        }
+
+        // 仅通过点击卡片空白处或“点击展开”时打开大窗
+        function openAiModalByClick(e) {
+            openAiModal();
+        }
+
+        // 关闭大弹窗函数
+        function closeAiModal() {
+            const modal = document.getElementById('ai-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `px-5 py-3.5 rounded-xl border text-sm font-bold text-center shadow-xl transition-all duration-500 transform -translate-y-2 opacity-0 select-none tracking-wide ${
+                type === 'success'
+                ? 'bg-[#ffffff] border-[#92a48b] text-[#52604d]'
+                : 'bg-[#ffffff] border-[#c29490] text-[#a04b46]'
+            }`;
+            toast.innerText = message;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.remove('-translate-y-2', 'opacity-0'), 50);
+            setTimeout(() => {
+                toast.classList.add('-translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        document.getElementById('addForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                subject: document.getElementById('add-subject').value,
+                weight: parseInt(document.getElementById('add-weight').value),
+                ddl: document.getElementById('add-ddl').value
+            };
+            const res = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if(result.status === 'success') {
+                showToast("复习目标已成功部署在时间轴。");
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(result.msg, 'error');
+            }
+        });
+
+        document.getElementById('punchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                subject: document.getElementById('punch-subject').value,
+                duration: parseInt(document.getElementById('punch-duration').value)
+            };
+            const res = await fetch('/api/punch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if(result.status === 'success') {
+                showToast("专注记录已优雅归档至热力矩阵。");
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(result.msg, 'error');
+            }
+        });
+
+        async function deleteExam(subjectName) {
+            const res = await fetch('/api/del', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject: subjectName }) });
+            const result = await res.json();
+            if(result.status === 'success') {
+                showToast("该科目目标已平滑移除。");
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(result.msg, 'error');
+            }
+        }
+
+        // 双向同步统一对话引擎
+        async function sendChatMessage(source) {
+            const inputEl = document.getElementById(source === 'modal' ? 'modal-chat-input' : 'chat-input');
+            const chatBox = document.getElementById('chat-box');
+            const modalChatBox = document.getElementById('modal-chat-box');
+            const message = inputEl.value.trim();
+            if(!message) return;
+
+            inputEl.value = '';
+
+            // 构建用户对话气泡HTML
+            const userHtml = `<div class="text-[#a68e8b] text-right bg-[#fcfaf9] p-3 rounded-lg border border-stone-100 ml-8 shadow-sm"><span class="text-[#877270] font-bold">你:</span> <span class="text-[#594a48]">${message}</span></div>`;
+
+            // 同步追加至小窗和大弹窗
+            chatBox.innerHTML += userHtml;
+            modalChatBox.innerHTML += userHtml;
+
+            // 滚动两个视图
+            chatBox.scrollTop = chatBox.scrollHeight;
+            modalChatBox.scrollTop = modalChatBox.scrollHeight;
+
+            // 在开启对话后，自动呼出网页中央的沉浸毛玻璃手机弹窗
+            openAiModal();
+
+            // 请求后端大模型接口
+            const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: message }) });
+            const result = await res.json();
+
+            if(result.status === 'success') {
+                setTimeout(() => {
+                    // 维持你原有的莫兰迪词汇温和替换逻辑
+                    let cozyReply = result.reply
+                        .replace(/核心控制矩阵|注入控制矩阵|监测集群/g, "复习节奏流")
+                        .replace(/切断一切外部高熵干扰/g, "轻轻放下手边繁杂的事物")
+                        .replace(/指令|启动一个 25 分钟的无扰打卡/g, "建议开启一段平和的 25 分钟专注时间");
+
+                    // 构建 AI 顾问答复气泡HTML
+                    const aiHtml = `<div class="text-[#5a5a5a] bg-[#f6f4f1] p-3 rounded-lg border border-stone-100 mr-8 shadow-sm"><span class="text-[#657a85] font-bold">✨ 顾问:</span> <span class="text-[#3c3c3c] font-medium">${cozyReply}</span></div>`;
+
+                    // 双向实时同步追加入两个面板
+                    chatBox.innerHTML += aiHtml;
+                    modalChatBox.innerHTML += aiHtml;
+
+                    // 再次执行滚动，平滑对齐历史位置
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    modalChatBox.scrollTop = modalChatBox.scrollHeight;
+                }, 300);
+            }
+        }
+    </script>
+</body>
+</html>
