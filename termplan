@@ -1,0 +1,48 @@
+#!/bin/bash
+# termplan - 核心架构 CLI 脚本
+
+TERMPLAN_DIR="$HOME/Desktop/termplan"
+DB_PATH="$TERMPLAN_DIR/termplan.db"
+LOG_FILE="$TERMPLAN_DIR/termplan.log"
+
+COMMAND=$1
+shift
+
+case "$COMMAND" in
+    add)
+        SUBJECT=$1; WEIGHT=$2; DDL=$3
+        sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO exams (subject, weight, ddl) VALUES ('$SUBJECT', $WEIGHT, '$DDL');"
+        echo "成功记录考试科目: $SUBJECT"
+        ;;
+    del)
+        SUBJECT=$1
+        sqlite3 "$DB_PATH" "DELETE FROM exams WHERE subject='$SUBJECT';"
+        echo "已成功移除科目: $SUBJECT"
+        ;;
+    punch)
+        SUBJECT=$1
+        DURATION=${2:-30}
+        TODAY=$(date +"%Y-%m-%d")
+        CHECK=$(sqlite3 "$DB_PATH" "SELECT count(*) FROM exams WHERE subject='$SUBJECT';")
+        if [ "$CHECK" -eq 0 ]; then
+            echo "错误: 科目 '$SUBJECT' 不存在，请先添加。"
+            exit 1
+        fi
+        sqlite3 "$DB_PATH" "INSERT INTO punch_history (subject, punch_date, duration) VALUES ('$SUBJECT', '$TODAY', $DURATION);"
+        echo "[$TODAY $(date +"%H:%M:%S")] PUNCH SUBJECT=$SUBJECT DURATION=$DURATION" >> "$LOG_FILE"
+        echo "【打卡成功】已记录 $SUBJECT 共 $DURATION 分钟。"
+        osascript -e "display notification \"今日复习 ${SUBJECT} 共 ${DURATION} 分钟\" with title \"TermPlan 打卡成功\""
+        ;;
+    view)
+        echo -e "\n\033[1;36m==================== TermPlan ====================\033[0m"
+        echo -e "\033[1;33m[ 考试倒计时 ]\033[0m"
+        sqlite3 "$DB_PATH" -cmd ".headers on" -cmd ".mode column" "SELECT subject AS '科目', weight AS '权重', ddl AS '考试日期', CAST((julianday(ddl) - julianday('now', 'localtime')) AS INT) AS '剩余天数' FROM exams ORDER BY ddl ASC;"
+        
+        echo -e "\n\033[1;33m[ 过去 30 天复习足迹热力图 ]\033[0m"
+        awk -f "$TERMPLAN_DIR/hotmap.awk" "$LOG_FILE"
+        
+        echo -e "\n\033[1;33m[ AI 智能建议 ]\033[0m"
+        python3 "$TERMPLAN_DIR/ai_agent.py"
+        echo -e "\033[1;36m==================================================\033[0m\n"
+        ;;
+esac
