@@ -7,6 +7,7 @@ import auth
 
 app = Flask(__name__)
 
+
 app.secret_key = "termplan_morandi_secret_key"
 
 DB_PATH = "D:\\termplan\\termplan.db"
@@ -20,16 +21,43 @@ def get_db_connection():
     return conn
 
 
+def init_business_tables():
+   
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS exams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,         
+            subject TEXT NOT NULL,
+            weight INTEGER DEFAULT 3,
+            ddl TEXT NOT NULL
+        );
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS punch_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            punch_date TEXT NOT NULL,
+            duration INTEGER DEFAULT 30
+        );
+    """)
+    
+    conn.commit()
+    conn.close()
+
+
 @app.route("/login")
 def login_page():
-    """当直接访问 /login 时，优雅展现你设计的 HTML 登录卡片"""
+    
     return render_template("login.html")
-
 
 
 @app.route("/api/auth", methods=["POST"])
 def auth_api():
-    
     data = request.json
     action = data.get("action")      
     username = data.get("username", "").strip()
@@ -38,11 +66,10 @@ def auth_api():
     if not username or not password:
         return jsonify({"status": "error", "msg": "用户名或密码不能为空"})
 
-   
     auth.init_db()
+    init_business_tables()
 
     if action == "register":
-       
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         pwd_hash = auth.hash_password(password)
@@ -56,7 +83,6 @@ def auth_api():
             conn.close()
 
     elif action == "login":
-       
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         pwd_hash = auth.hash_password(password)
@@ -65,8 +91,9 @@ def auth_api():
         conn.close()
 
         if user:
-           
+            
             session["user"] = username
+            session["user_id"] = user[0]
             return jsonify({"status": "success", "msg": "登录成功"})
         else:
             return jsonify({"status": "error", "msg": "用户名或密码错误，请重试"})
@@ -74,50 +101,53 @@ def auth_api():
     return jsonify({"status": "error", "msg": "未知的操作指令"})
 
 
-
 @app.route("/")
 def index():
-    
-    if "user" not in session:
+    if "user" not in session or "user_id" not in session:
         return redirect(url_for("login_page"))
 
-   
+    current_user_id = session["user_id"]
+    
     auth.init_db()
+    init_business_tables()
     
     conn = get_db_connection()
     
+   
     exams = conn.execute(
-        "SELECT subject, weight, ddl, CAST((julianday(ddl) - julianday('now', 'localtime')) AS INT) as days_left FROM exams ORDER BY ddl ASC"
+        """SELECT subject, weight, ddl, 
+           CAST((julianday(ddl) - julianday('now', 'localtime')) AS INT) as days_left 
+           FROM exams WHERE user_id = ? ORDER BY ddl ASC""", (current_user_id,)
     ).fetchall()
 
-   
     logs = conn.execute(
-        "SELECT punch_date, SUM(duration) as total FROM punch_history WHERE punch_date >= date('now', '-30 days') GROUP BY punch_date"
+        """SELECT punch_date, SUM(duration) as total 
+           FROM punch_history WHERE user_id = ? AND punch_date >= date('now', '-30 days') 
+           GROUP BY punch_date""", (current_user_id,)
     ).fetchall()
 
-   
     total_minutes = (
-        conn.execute("SELECT SUM(duration) FROM punch_history").fetchone()[0]
+        conn.execute("SELECT SUM(duration) FROM punch_history WHERE user_id = ?", (current_user_id,)).fetchone()[0]
         or 0
     )
     total_exams = (
-        conn.execute("SELECT COUNT(*) FROM exams").fetchone()[0] or 0
+        conn.execute("SELECT COUNT(*) FROM exams WHERE user_id = ?", (current_user_id,)).fetchone()[0] or 0
     )
     most_active = conn.execute(
-        "SELECT subject FROM punch_history GROUP BY subject ORDER BY SUM(duration) DESC LIMIT 1"
+        """SELECT subject FROM punch_history WHERE user_id = ? 
+           GROUP BY subject ORDER BY SUM(duration) DESC LIMIT 1""", (current_user_id,)
     ).fetchone()
     most_active_sub = most_active[0] if most_active else "暂无数据"
 
     conn.close()
 
-   
     heatmap_data = {log["punch_date"]: log["total"] for log in logs}
     today = datetime.now()
     past_30_days = []
     for i in range(29, -1, -1):
         date_str = (today - timedelta(days=i)).strftime("%Y-%m-%d")
         mins = heatmap_data.get(date_str, 0)
-       
+        
         level = 0
         if mins > 0 and mins <= 30:
             level = 1
@@ -129,7 +159,6 @@ def index():
             {"date": date_str, "duration": mins, "level": level}
         )
 
-  
     return render_template(
         "index.html",
         exams=exams,
@@ -143,54 +172,73 @@ def index():
     )
 
 
-
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
+    session.clear() 
     return redirect(url_for("login_page"))
+
 
 
 @app.route("/api/add", methods=["POST"])
 def add_exam():
+    if "user_id" not in session:
+        return jsonify({"status": "error", "msg": "会话鉴权失效，请重新登录"})
+
     data = request.json
-    subject = data.get("subject", "").strip()
-    weight = int(data.get("weight", 3))
+    print("--- 后端收到前端部署请求数据 ---:", data)
+
+    subject = data.get("subject", "").strip() if data.get("subject") else ""
+    
+    try:
+        weight = int(data.get("weight", 3))
+    except (ValueError, TypeError):
+        weight = 3
+        
     ddl = data.get("ddl")
+    current_user_id = session["user_id"]
 
     if not subject or not ddl:
         return jsonify({"status": "error", "msg": "核心字段溢出：科目与日期不可为空"})
 
     try:
         conn = get_db_connection()
+        
         conn.execute(
-            "INSERT OR REPLACE INTO exams (subject, weight, ddl) VALUES (?, ?, ?)",
-            (subject, weight, ddl),
+            "INSERT OR IGNORE INTO exams (user_id, subject, weight, ddl) VALUES (?, ?, ?, ?)",
+            (current_user_id, subject, weight, ddl),
         )
         conn.commit()
         conn.close()
+        
+        print(f"--- 注入状态同步成功 ---: 用户 {current_user_id} 成功部署科目 [{subject}]")
         return jsonify(
             {
                 "status": "success",
-                "msg": f" 目标科目 [{subject}] 已成功注入控制矩阵！",
+                "msg": f" 目标科目 [{subject}] 已成功注入您的控制矩阵！",
             }
         )
     except Exception as e:
+        print("--- 数据库写入失败底层报错 ---:", str(e))
         return jsonify({"status": "error", "msg": str(e)})
 
 
 @app.route("/api/del", methods=["POST"])
 def del_exam():
+    if "user_id" not in session:
+        return jsonify({"status": "error", "msg": "会话鉴权失效，请重新登录"})
+
     data = request.json
     subject = data.get("subject")
+    current_user_id = session["user_id"]
     try:
         conn = get_db_connection()
-        conn.execute("DELETE FROM exams WHERE subject=?", (subject,))
+        conn.execute("DELETE FROM exams WHERE user_id=? AND subject=?", (current_user_id, subject))
         conn.commit()
         conn.close()
         return jsonify(
             {
                 "status": "success",
-                "msg": f"已将科目 [{subject}] 从监测域中安全抹除。",
+                "msg": f"已将科目 [{subject}] 从您的监测域中安全抹除。",
             }
         )
     except Exception as e:
@@ -199,21 +247,24 @@ def del_exam():
 
 @app.route("/api/punch", methods=["POST"])
 def punch():
+    if "user_id" not in session:
+        return jsonify({"status": "error", "msg": "会话鉴权失效，请重新登录"})
+
     data = request.json
     subject = data.get("subject")
     duration = int(data.get("duration", 30))
     today = datetime.now().strftime("%Y-%m-%d")
+    current_user_id = session["user_id"]
 
     try:
         conn = get_db_connection()
         conn.execute(
-            "INSERT INTO punch_history (subject, punch_date, duration) VALUES (?, ?, ?)",
-            (subject, today, duration),
+            "INSERT INTO punch_history (user_id, subject, punch_date, duration) VALUES (?, ?, ?, ?)",
+            (current_user_id, subject, today, duration),
         )
         conn.commit()
         conn.close()
 
-       
         if os.name != 'nt':
             os.system(
                 f"osascript -e 'display notification \"打卡记录：{subject} +{duration}min\" with title \"⚡️ TermPlan 状态同步成功\"'"
@@ -228,11 +279,14 @@ def punch():
         return jsonify({"status": "error", "msg": str(e)})
 
 
-
 @app.route("/api/chat", methods=["POST"])
 def chat():
+    if "user_id" not in session:
+        return jsonify({"status": "error", "msg": "顾问无法识别您的会话节点，请先登录"})
+
     data = request.json
     user_msg = data.get("message", "").strip()
+    current_user_id = session["user_id"]
 
     if not user_msg:
         return jsonify({"status": "error", "msg": "写下的困惑不能为空白哦"})
@@ -240,10 +294,10 @@ def chat():
     try:
         conn = get_db_connection()
         exams = conn.execute(
-            "SELECT subject, weight, ddl, CAST((julianday(ddl) - julianday('now', 'localtime')) AS INT) as days_left FROM exams"
+            "SELECT subject, weight, ddl, CAST((julianday(ddl) - julianday('now', 'localtime')) AS INT) as days_left FROM exams WHERE user_id = ?", (current_user_id,)
         ).fetchall()
         punches = conn.execute(
-            "SELECT subject, COUNT(*) as cnt FROM punch_history WHERE punch_date >= date('now', '-7 days') GROUP BY subject"
+            "SELECT subject, COUNT(*) as cnt FROM punch_history WHERE user_id = ? AND punch_date >= date('now', '-7 days') GROUP BY subject", (current_user_id,)
         ).fetchall()
         conn.close()
 
@@ -303,4 +357,5 @@ def chat():
 
 
 if __name__ == "__main__":
+    init_business_tables() 
     app.run(debug=True, port=5000)

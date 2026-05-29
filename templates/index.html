@@ -292,7 +292,7 @@
             openAiModal();
         }
 
-        /
+
         function closeAiModal() {
             const modal = document.getElementById('ai-modal');
             modal.classList.add('opacity-0');
@@ -314,7 +314,6 @@
             setTimeout(() => toast.classList.remove('-translate-y-2', 'opacity-0'), 50);
             setTimeout(() => {
                 toast.classList.add('-translate-y-2', 'opacity-0');
-                setTimeout(() => toast.remove(), 500);
             }, 3000);
         }
 
