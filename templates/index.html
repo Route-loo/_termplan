@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TermPlan — 专注与静谧的工作流</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f4f3ef;
+            color: #333333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .morandi-card {
+            background-color: #fafaf9;
+            border-top: 3px solid rgba(189, 178, 166, 0.6);
+            border-bottom: 3px solid rgba(189, 178, 166, 0.6);
+            border-left: 1px solid rgba(189, 178, 166, 0.3);
+            border-right: 1px solid rgba(189, 178, 166, 0.3);
+            box-shadow: 0 12px 35px -5px rgba(138, 131, 124, 0.12);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .morandi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 40px -5px rgba(138, 131, 124, 0.18);
+            border-color: rgba(189, 178, 166, 0.6);
+        }
+
+        .morandi-input {
+            background-color: #f1ede7;
+            border: 1px solid rgba(189, 178, 166, 0.5);
+            color: #333333;
+            transition: all 0.3s ease;
+        }
+
+        .morandi-input:focus {
+            border-color: #7b94a1;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(156, 178, 188, 0.3);
+            outline: none;
+        }
+        
+        .shell-output {
+            font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+            white-space: pre;
+            display: inline-block;
+            padding: 10px;
+            background: #fcfcfc;
+        }
+
+        .hl-0 { background-color: #e5e8e4; }
+        .hl-1 { background-color: #b8c4b4; }
+        .hl-2 { background-color: #92a48b; }
+        .hl-3 { background-color: #718469; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 目录切换 */
+        .toc-link {
+            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .shell-table-wrapper table {
+            font-family: inherit;
+            font-size: 0.8rem;
+            background-color: transparent;
+        }
+        .shell-table-wrapper td {
+            padding: 6px 16px 6px 0;
+            border-bottom: 1px dashed rgba(150, 150, 150, 0.25);
+            white-space: nowrap;
+            color: #3a3a3a;
+        }
+        .shell-table-wrapper div:not(.no-styling) {
+            margin-top: 8px;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #4e5b48;
+        }
+
+        /* 滚动出现特效 */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(26px);
+            transition: opacity 0.7s cubic-bezier(0.2, 0.9, 0.4, 1.1), transform 0.7s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            will-change: opacity, transform;
+        }
+        .scroll-reveal.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        /* 为header单独提供一个轻微不同的延时 */
+        header.scroll-reveal.revealed {
+            transition-delay: 0.05s;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen px-6 py-10 md:px-12 flex flex-col justify-between relative">
+
+    <div id="toast-container" class="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 space-y-3 pointer-events-none w-80"></div>
+
+    <nav id="floating-toc" class="fixed right-8 top-1/2 transform -translate-y-1/2 z-40 hidden xl:flex flex-col space-y-7 text-right items-end select-none font-sans">
+        <a href="#sec-stats" id="toc-sec-stats" class="toc-link block text-xs font-normal text-[#9c958d] bg-transparent px-4 py-2 rounded-full whitespace-nowrap">01. 大盘状态度量</a>
+        <a href="#sec-sh-monitor" id="toc-sec-sh-monitor" class="toc-link block text-xs font-normal text-[#9c958d] bg-transparent px-4 py-2 rounded-full whitespace-nowrap">02. 核心中枢监测</a>
+        <a href="#sec-targets" id="toc-sec-targets" class="toc-link block text-xs font-normal text-[#9c958d] bg-transparent px-4 py-2 rounded-full whitespace-nowrap">03. 部署复习目标</a>
+        <a href="#sec-sh-report" id="toc-sec-sh-report" class="toc-link block text-xs font-normal text-[#9c958d] bg-transparent px-4 py-2 rounded-full whitespace-nowrap">04. 自动化数据流</a>
+        <a href="#sec-advisor" id="toc-sec-advisor" class="toc-link block text-xs font-normal text-[#9c958d] bg-transparent px-4 py-2 rounded-full whitespace-nowrap">05. 备考心流顾问</a>
+        <a href="#sec-sh-backup" id="toc-sec-sh-backup" class="toc-link block text-xs font-normal text-[#9c958d] bg-transparent px-4 py-2 rounded-full whitespace-nowrap">06. 安全备份中枢</a>
+    </nav>
+
+    <div id="ai-modal" class="fixed inset-0 bg-stone-950/40 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-all duration-300">
+        <div class="bg-[#f4f3ef] w-full max-w-xl h-[75vh] rounded-3xl shadow-2xl border border-stone-200/80 flex flex-col overflow-hidden relative m-4 morandi-card">
+            <div class="px-6 py-4 border-b border-stone-200/60 flex justify-between items-center bg-[#fafaf9]">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-[#9ab0bb] animate-pulse"></div>
+                    <h3 class="text-sm font-bold tracking-wider text-[#5a5a5a] font-mono">AI 顾问 · 沉浸心灵流</h3>
+                </div>
+                <button onclick="closeAiModal()" class="text-[#a39a90] hover:text-[#c29490] text-lg font-bold transition-colors p-1" title="返回主看板">✕</button>
+            </div>
+            <div id="modal-chat-box" class="flex-1 p-6 text-sm leading-relaxed space-y-4 overflow-y-auto no-scrollbar bg-[#fafaf9] text-[#4a4a4a]">
+            </div>
+            <div class="p-4 bg-[#fafaf9] border-t border-stone-200/60">
+                <div class="flex gap-2 bg-[#ffffff] p-1.5 rounded-xl border border-stone-200 shadow-sm">
+                    <input type="text" id="modal-chat-input" class="flex-1 bg-transparent px-3 py-2 text-sm text-[#2c2c2c] outline-none placeholder-[#a39a90] font-medium" placeholder="继续理清你的步调..." onkeydown="if(event.keyCode==13) sendChatMessage('modal')">
+                    <button onclick="sendChatMessage('modal')" class="bg-[#829ba7] hover:bg-[#728a95] text-white px-5 py-2 rounded-lg text-sm font-bold transition duration-300">倾诉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto w-full flex-1 space-y-8">
+
+        <!-- 头部添加滚动特效 -->
+        <header class="flex justify-between items-end border-b border-[#ded9d2] pb-6 scroll-reveal">
+            <div>
+                <h1 class="text-4xl font-normal tracking-wide text-[#2c2c2c] font-serif">TermPlan</h1>
+                <p class="text-sm text-[#7a736c] mt-2 tracking-wider">摒弃喧嚣，构建具备低干扰属性的极简复习环境。</p>
+            </div>
+            <div class="text-xs tracking-widest text-[#7a736c] uppercase bg-[#edeae4] px-3 py-1.5 rounded font-medium flex items-center gap-1">
+                当前用户 / <span class="text-[#65765d] font-bold">{{ username }}</span>
+            </div>
+        </header>
+
+        <!-- 区块1: 大盘状态度量 -->
+        <section id="sec-stats" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch scroll-mt-8 scroll-reveal">
+            <div class="lg:col-span-5 flex flex-col gap-4 justify-between">
+                <div class="morandi-card px-6 py-8 rounded-2xl bg-[#e0e5e8] border-none flex-1 flex flex-col justify-center">
+                    <p class="text-xs font-semibold text-[#5c6e77] tracking-wider font-mono">累计专注时长</p>
+                    <p class="text-3xl font-normal text-[#3a4449] mt-2 tracking-tight">{{ stats.total_minutes }} <span class="text-sm font-medium text-[#5c6e77]">分钟</span></p>
+                </div>
+                <div class="morandi-card px-6 py-8 rounded-2xl bg-[#dfd7cc] border-none flex-1 flex flex-col justify-center">
+                    <p class="text-xs font-semibold text-[#7a7066] tracking-wider font-mono">当前并行任务</p>
+                    <p class="text-3xl font-normal text-[#4a4238] mt-2 tracking-tight">{{ stats.total_exams }} <span class="text-sm font-medium text-[#7a7066]">项</span></p>
+                </div>
+                <div class="morandi-card px-6 py-8 rounded-2xl bg-[#e8d5d3] border-none flex-1 flex flex-col justify-center">
+                    <p class="text-xs font-semibold text-[#967976] tracking-wider font-mono">核心攻坚流域</p>
+                    <p class="text-xl font-medium text-[#594a48] mt-2 truncate">{{ stats.most_active }}</p>
+                </div>
+            </div>
+            
+            <div class="lg:col-span-7 morandi-card px-6 py-8 rounded-2xl flex flex-col justify-between">
+                <div>
+                    <h2 class="text-sm font-bold tracking-wider text-[#7a736c] mb-4 font-mono">近 30 日心流打卡热力感知网络</h2>
+                    <div class="flex flex-wrap gap-2.5 p-1">
+                        {% for day in past_30_days %}
+                        <div class="w-[34px] h-[34px] rounded-lg hl-{{ day.level }} transition-all duration-300 transform hover:scale-110 cursor-pointer relative group shadow-sm"
+                            data-date="{{ day.date }}" data-dur="{{ day.duration }}">
+                            <div class="absolute bottom-11 left-1/2 transform -translate-x-1/2 bg-[#333333] text-xs text-white font-sans px-3 py-1.5 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-30 font-medium">
+                                {{ day.date }} · {{ day.duration }} 分钟
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="text-[10px] text-[#8c857d] font-mono mt-4 flex items-center justify-end gap-2 select-none">
+                    <span>低干扰</span>
+                    <div class="w-3 h-3 rounded hl-0"></div>
+                    <div class="w-3 h-3 rounded hl-1"></div>
+                    <div class="w-3 h-3 rounded hl-2"></div>
+                    <div class="w-3 h-3 rounded hl-3"></div>
+                    <span>高心流</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 区块2: Linux核心中枢状态 monitor.sh -->
+        <div id="sec-sh-monitor" class="bg-[#e2e4e1] border-t-2 border-b-2 border-[#c5c8c4] px-5 py-5 rounded-xl text-xs font-mono text-[#556052] flex flex-col shadow-sm cursor-pointer select-none transition-all duration-300 hover:bg-[#dadcd8] scroll-mt-8 scroll-reveal" onclick="toggleLog('log-panel-1', 'monitor.sh')">
+            <div class="flex justify-between items-center w-full">
+                <span class="font-bold flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#718469]"></span>Linux 核心中枢状态 (monitor.sh)</span>
+                </div>
+            <div id="log-panel-1" class="hidden mt-3 pt-3 border-t border-[#ced2cc] text-[#485246] leading-relaxed" onclick="event.stopPropagation()">
+                <pre class="font-mono text-xs text-[#3d473c] bg-[#f0f2ef]/80 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap mt-1 border border-[#ced2cc] shell-table-wrapper">正在与后端通信，读取终端执行流...</pre>
+            </div>
+        </div>
+
+        <!-- 区块3: 部署复习目标 + 时间轴监测 -->
+        <section id="sec-targets" class="grid grid-cols-1 lg:grid-cols-12 gap-6 scroll-mt-8 scroll-reveal">
+            <div class="lg:col-span-5 space-y-6">
+                <div class="morandi-card px-6 py-8 rounded-2xl space-y-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-[#2c2c2c]">部署复习目标</h2>
+                        <p class="text-xs text-[#7a736c] mt-0.5">规划并部署期末复习的重要里程碑。</p>
+                    </div>
+                    <form id="addForm" class="space-y-3">
+                        <input type="text" id="add-subject"
+                            class="morandi-input w-full rounded-xl px-4 py-2.5 text-sm placeholder-[#8c857d] font-medium"
+                            placeholder="科目名称 (如：Linux 系统管理)" required>
+                        <div class="grid grid-cols-2 gap-3">
+                            <select id="add-weight" class="morandi-input rounded-xl px-3 py-2.5 text-sm font-medium">
+                                <option value="3">权重: 3 (常规)</option>
+                                <option value="5">权重: 5 (核心硬核)</option>
+                                <option value="1">权重: 1 (考查课)</option>
+                            </select>
+                            <input type="date" id="add-ddl"
+                                class="morandi-input rounded-xl px-3 py-2.5 text-sm text-[#4a4641] font-medium" required>
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-[#c29490] hover:bg-[#b0827e] text-white text-sm font-bold py-3 rounded-xl transition-all duration-300 shadow-md tracking-wide">部署复习目标</button>
+                    </form>
+                </div>
+
+                <div class="morandi-card px-6 py-8 rounded-2xl space-y-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-[#2c2c2c]">心流状态打卡</h2>
+                        <p class="text-xs text-[#7a736c] mt-0.5">记录每一次有效专注，安全归档至大盘感知矩阵。</p>
+                    </div>
+                    <form id="punchForm" class="space-y-3">
+                        <select id="punch-subject" class="morandi-input w-full rounded-xl px-4 py-2.5 text-sm font-medium" required>
+                            <option value="" disabled selected class="text-[#8c857d]">请选择当前打卡科目</option>
+                            {% for exam in exams %}
+                            <option value="{{ exam['subject'] }}">{{ exam['subject'] }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="relative">
+                            <input type="number" id="punch-duration"
+                                class="morandi-input w-full rounded-xl px-4 py-2.5 text-sm font-mono font-bold" value="30" min="1" required>
+                            <span class="absolute right-4 top-2.5 text-xs font-bold font-mono text-[#7a736c]">分钟</span>
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-[#829ba7] hover:bg-[#728a95] text-white text-sm font-bold py-3 rounded-xl transition-all duration-300 shadow-md tracking-wide">记录一次心流</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="lg:col-span-7 morandi-card px-6 py-8 rounded-2xl flex flex-col h-full min-h-[430px]">
+                <h2 class="text-sm font-bold tracking-wider text-[#7a736c] mb-4 font-mono">目标时间轴实时监测</h2>
+                <div class="space-y-3 overflow-y-auto flex-1 no-scrollbar pr-1">
+                    {% for exam in exams %}
+                    <div class="flex justify-between items-center bg-[#ffffff] p-4 rounded-xl border border-stone-200 shadow-sm transition-all group hover:border-stone-300">
+                        <div class="truncate max-w-[240px]">
+                            <div class="font-bold text-sm text-[#2c2c2c] truncate">{{ exam['subject'] }}</div>
+                            <div class="text-xs text-[#7a736c] mt-1 font-mono font-medium">权重-{{ exam['weight'] }} · 截止时间：{{ exam['ddl'] }}</div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <span class="text-2xl font-normal {% if exam['days_left'] < 7 %}text-[#b05f59] font-bold{% else %}text-[#52604d]{% endif %} font-serif">{{ exam['days_left'] }}</span>
+                                <span class="text-[10px] text-[#8c857d] block font-mono font-bold">天</span>
+                            </div>
+                            <button onclick="deleteExam('{{ exam['subject'] }}')"
+                                class="opacity-0 group-hover:opacity-100 text-[#a39a90] hover:text-[#c29490] text-lg transition duration-200 font-bold" title="移除此目标">✕</button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-[#9c958d] text-center pt-36 font-serif italic">您的调度矩阵目前非常整洁，未安排任何核心硬核考试。</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- 区块4: Shell 自动化数据流水线 report.sh -->
+        <div id="sec-sh-report" class="bg-[#e5e1da] border-t-2 border-b-2 border-[#ccc7be] px-5 py-5 rounded-xl text-xs font-mono text-[#605850] flex flex-col shadow-sm cursor-pointer select-none transition-all duration-300 hover:bg-[#dedad2] scroll-mt-8 scroll-reveal" onclick="toggleLog('log-panel-2', 'report.sh')">
+            <div class="flex justify-between items-center w-full">
+                <span class="font-bold flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#a39a90]"></span>Shell 自动化数据流水线 (report.sh)</span>
+                </div>
+            <div id="log-panel-2" class="hidden mt-3 pt-3 border-t border-[#d4cecc] text-[#524b44] leading-relaxed" onclick="event.stopPropagation()">
+                <pre class="font-mono text-xs text-[#4d453e] bg-[#f3eff8]/40 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap mt-1 border border-[#d4cecc] shell-table-wrapper">正在与后端通信，读取终端执行流...</pre>
+            </div>
+        </div>
+
+        <!-- 区块5: 备考心流顾问 -->
+        <section id="sec-advisor" class="morandi-card px-6 py-8 rounded-2xl cursor-pointer scroll-mt-8 scroll-reveal" onclick="openAiModalByClick(event)">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-[#9ab0bb]"></div>
+                    <h2 class="text-sm font-bold tracking-wider text-[#7a736c] font-mono">自适应备考心流顾问</h2>
+                </div>
+                <span class="text-xs text-[#829ba7] font-medium hover:underline tracking-wider select-none">点击展开沉浸流对话 ↗</span>
+            </div>
+            <div id="chat-box" class="text-sm leading-relaxed space-y-4 mb-4 text-[#4a4a4a]">
+                <div class="bg-[#f6f4f1] p-4 rounded-xl border border-stone-100 shadow-inner">
+                    <span class="text-[#657a85] font-bold block mb-1">✨ 顾问提示:</span>
+                    备考状态调和轴已建立。无论是感到焦虑、复习节奏紊乱，还是需要动态排程调和建议，随时可以写在这里倾诉，我们一同慢下来，理清步调。
+                </div>
+            </div>
+            <div class="flex gap-2 bg-[#ffffff] p-1.5 rounded-xl border border-stone-200 shadow-sm" onclick="event.stopPropagation()">
+                <input type="text" id="chat-input"
+                    class="flex-1 bg-transparent px-3 py-2 text-sm text-[#2c2c2c] outline-none placeholder-[#a39a90] font-medium"
+                    placeholder="写下当下的困惑与考试焦虑..." onkeydown="if(event.keyCode==13) sendChatMessage('small')">
+                <button onclick="sendChatMessage('small')" class="bg-[#829ba7] hover:bg-[#728a95] text-white px-5 py-2 rounded-lg text-sm font-bold transition duration-300">倾诉</button>
+            </div>
+        </section>
+
+        <!-- 区块6: 运维安全与备份防护中枢 backup.sh -->
+        <div id="sec-sh-backup" class="bg-[#ebdcdb] border-t-2 border-b-2 border-[#cca9a6] px-5 py-5 rounded-xl text-xs font-mono text-[#7a605e] flex flex-col shadow-sm cursor-pointer select-none transition-all duration-300 hover:bg-[#e2d3d2] scroll-mt-8 scroll-reveal" onclick="toggleLog('log-panel-3', 'backup.sh')">
+            <div class="flex justify-between items-center w-full">
+                <span class="font-bold flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#c29490]"></span>运维安全与备份防护中枢 (backup.sh)</span>
+                </div>
+            <div id="log-panel-3" class="hidden mt-3 pt-3 border-t border-[#decbc9] text-[#69514f] leading-relaxed" onclick="event.stopPropagation()">
+                <pre class="font-mono text-xs text-[#594341] bg-[#f5e9e8]/80 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap mt-1 border border-[#decbc9] shell-table-wrapper">正在与后端通信，读取终端执行流...</pre>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="max-w-6xl mx-auto w-full text-center text-xs text-[#9c958d] font-mono mt-12 pt-5 border-t border-[#ded9d2] font-medium scroll-reveal">
+        TermPlan 终端考试复习规划助手
+    </footer>
+
+    <script>
+        // 初始化同步心灵流聊天室
+        document.getElementById('modal-chat-box').innerHTML = document.getElementById('chat-box').innerHTML;
+
+        // 动态解析 Shell 脚本输出，将包含管道符 "|" 的文本自动转为原生表格
+        async function toggleLog(panelId, scriptName) {
+            const panel = document.getElementById(panelId);
+            const preElement = panel.querySelector('pre');
+            
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                preElement.innerText = `[LOADING] 正在实时同步并调用终端 ${scriptName} ...`;
+                try {
+                    const res = await fetch(`/api/run_script?script=${scriptName}`);
+                    const data = await res.json();
+                    
+                    if (data.status === 'success') {
+                        let lines = data.output.split('\n');
+                        let htmlContent = '';
+                        let inTable = false;
+                        const skipPattern = /^[-=]{5,}$/;
+
+                        lines.forEach(line => {
+                            if (skipPattern.test(line.trim())) return;
+
+                            if (line.includes('|')) {
+                                if (!inTable) {
+                                    htmlContent += '<table style="width: 100%; text-align: left; border-collapse: collapse; margin: 12px 0; font-family: inherit;">';
+                                    inTable = true;
+                                }
+                                let cells = line.split('|');
+                                htmlContent += '<tr>';
+                                cells.forEach(cell => {
+                                    let safeCell = cell.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
+                                    htmlContent += `<td style="padding: 6px 16px 6px 0; border-bottom: 1px dashed rgba(120, 110, 100, 0.3); white-space: nowrap; color: #2c3e2b; font-size: 0.75rem;">${safeCell || '—'}${safeCell ? '' : ''}</td>`;
+                                });
+                                htmlContent += '</tr>';
+                            } else {
+                                if (inTable) {
+                                    htmlContent += '</table>';
+                                    inTable = false;
+                                }
+                                let safeLine = line.replace(/</g, "&lt;").replace(/>/g, "&gt;").trim();
+                                if (safeLine) {
+                                    htmlContent += `<div style="margin-top: 12px; margin-bottom: 6px; font-weight: 540; color: #4a5b44; letter-spacing: 0.01em; font-size: 0.75rem;">${safeLine}</div>`;
+                                }
+                            }
+                        });
+                        if (inTable) htmlContent += '</table>';
+                        
+                        if (!htmlContent.trim()) {
+                            htmlContent = `<div style="font-family: monospace; font-size: 0.7rem; color: #5a6352;">${data.output.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+                        }
+                        
+                        preElement.innerHTML = htmlContent;
+                        preElement.style.whiteSpace = 'normal';
+                        preElement.classList.add('shell-table-wrapper');
+                    } else {
+                        preElement.innerText = `[ERROR] 读取失败: ${data.msg}`;
+                        preElement.style.whiteSpace = 'pre-wrap';
+                    }
+                } catch (err) {
+                    preElement.innerText = `[ERROR] 无法连接到终端后端中枢，请确认后端 API 是否已部署。`;
+                    preElement.style.whiteSpace = 'pre-wrap';
+                }
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        // 滚动侦听高亮目录
+        window.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('section[id], div[id^="sec-sh-"]');
+            const tocLinks = document.querySelectorAll('.toc-link');
+
+            function scrollSpy() {
+                let currentId = "";
+                const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+
+                sections.forEach((section) => {
+                    const sectionTop = section.offsetTop - 150;
+                    if (scrollPosition >= sectionTop) {
+                        currentId = section.getAttribute('id');
+                    }
+                });
+
+                tocLinks.forEach((link) => {
+                    link.classList.remove('text-sm', 'font-bold', 'text-[#1c2b46]', 'bg-[#dce4ec]', 'shadow-sm');
+                    link.classList.add('text-xs', 'font-normal', 'text-[#9c958d]');
+                    
+                    if (link.getAttribute('href') === `#${currentId}`) {
+                        link.classList.remove('text-xs', 'font-normal', 'text-[#9c958d]');
+                        link.classList.add('text-sm', 'font-bold', 'text-[#1c2b46]', 'bg-[#dce4ec]', 'shadow-sm');
+                    }
+                });
+            }
+
+            window.addEventListener('scroll', scrollSpy);
+            scrollSpy();
+        });
+
+        // ========== 滚动出现特效（Intersection Observer）==========
+        function initScrollReveal() {
+            const revealElements = document.querySelectorAll('.scroll-reveal');
+            if (revealElements.length === 0) return;
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    // 当元素进入视口时添加 'revealed' 类
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('revealed');
+                        // 一旦动画完成，可停止观察该元素以提升性能
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.2, rootMargin: "0px 0px -20px 0px" }); // 让元素稍微进入20%就触发，感觉更平滑
+            
+            revealElements.forEach(el => observer.observe(el));
+        }
+        
+        // 确保在DOM加载完成后启动滚动特效，同时保留其他初始化逻辑
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initScrollReveal);
+        } else {
+            initScrollReveal();
+        }
+        
+        // 由于部分内容可能在异步刷新后保持不变，但整个页面未重新加载，无需额外处理；
+        // 但如果有动态添加新的.scroll-reveal（该场景没有），为了保证鲁棒性，保留此观察。
+        
+        function openAiModal() {
+            const modal = document.getElementById('ai-modal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.offsetHeight;
+                modal.classList.remove('opacity-0');
+            }
+            const mBox = document.getElementById('modal-chat-box');
+            mBox.scrollTop = mBox.scrollHeight;
+        }
+
+        function openAiModalByClick(e) {
+            openAiModal();
+        }
+
+        function closeAiModal() {
+            const modal = document.getElementById('ai-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `px-5 py-3.5 rounded-xl border text-sm font-bold text-center shadow-xl transition-all duration-500 transform -translate-y-2 opacity-0 select-none tracking-wide ${type === 'success'
+                ? 'bg-[#ffffff] border-[#92a48b] text-[#52604d]'
+                : 'bg-[#ffffff] border-[#c29490] text-[#a04b46]'
+                }`;
+            toast.innerText = message;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.remove('-translate-y-2', 'opacity-0'), 50);
+            setTimeout(() => {
+                toast.classList.add('-translate-y-2', 'opacity-0');
+            }, 3000);
+        }
+
+        document.getElementById('addForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                subject: document.getElementById('add-subject').value,
+                weight: parseInt(document.getElementById('add-weight').value),
+                ddl: document.getElementById('add-ddl').value
+            };
+            const res = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.status === 'success') {
+                showToast("复习目标已成功部署在时间轴。");
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(result.msg, 'error');
+            }
+        });
+
+        document.getElementById('punchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                subject: document.getElementById('punch-subject').value,
+                duration: parseInt(document.getElementById('punch-duration').value)
+            };
+            const res = await fetch('/api/punch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.status === 'success') {
+                showToast("专注记录已归档至热力矩阵。");
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(result.msg, 'error');
+            }
+        });
+
+        async function deleteExam(subjectName) {
+            const res = await fetch('/api/del', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject: subjectName }) });
+            const result = await res.json();
+            if (result.status === 'success') {
+                showToast("该科目目标已平滑移除。");
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(result.msg, 'error');
+            }
+        }
+
+        async function sendChatMessage(source) {
+            const inputEl = document.getElementById(source === 'modal' ? 'modal-chat-input' : 'chat-input');
+            const chatBox = document.getElementById('chat-box');
+            const modalChatBox = document.getElementById('modal-chat-box');
+            const message = inputEl.value.trim();
+            if (!message) return;
+
+            inputEl.value = '';
+
+            const userHtml = `<div class="text-[#a68e8b] text-right bg-[#fcfaf9] p-3 rounded-lg border border-stone-100 ml-8 shadow-sm"><span class="text-[#877270] font-bold">你:</span> <span class="text-[#594a48]">${message}</span></div>`;
+
+            chatBox.innerHTML += userHtml;
+            modalChatBox.innerHTML += userHtml;
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+            modalChatBox.scrollTop = modalChatBox.scrollHeight;
+
+            openAiModal();
+
+            const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: message }) });
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                setTimeout(() => {
+                    let cozyReply = result.reply
+                        .replace(/核心控制矩阵|注入控制矩阵|监测集群/g, "复习节奏流")
+                        .replace(/切断一切外部高熵干扰/g, "轻轻放下手边繁杂的事物")
+                        .replace(/指令|启动一个 25 分钟的无扰打卡/g, "建议开启一段平和的 25 分钟专注时间");
+
+                    const aiHtml = `<div class="text-[#5a5a5a] bg-[#f6f4f1] p-3 rounded-lg border border-stone-100 mr-8 shadow-sm"><span class="text-[#657a85] font-bold">✨ 顾问:</span> <span class="text-[#3c3c3c] font-medium">${cozyReply}</span></div>`;
+
+                    chatBox.innerHTML += aiHtml;
+                    modalChatBox.innerHTML += aiHtml;
+
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    modalChatBox.scrollTop = modalChatBox.scrollHeight;
+                }, 300);
+            }
+        }
+    </script>
+</body>
+
+</html>

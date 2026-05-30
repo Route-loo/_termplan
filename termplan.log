@@ -1,0 +1,41 @@
+[2026-05-19 18:05:31] PUNCH SUBJECT=数据库原理 DURATION=45
+[2026-05-30 18:24:08] [SYSTEM-DAEMON] 后台进程成功挂载启动，PID 锁定为: 34884
+Traceback (most recent call last):
+  File "/home/lenovo/Desktop/termplan/app.py", line 5, in <module>
+    from flask import Flask, jsonify, render_template, request, redirect, url_for, session
+ModuleNotFoundError: No module named 'flask'
+[2026-05-30 18:30:32] [WEB-AUTH] 登录成功 USERNAME=loo
+[2026-05-30 18:31:12] [BUSINESS] ADD_EXAM USER_ID=1 SUBJECT=科技英语
+[2026-05-30 18:31:16] [BUSINESS] PUNCH USER_ID=1 SUBJECT=科技英语 DURATION=60
+[2026-05-30 18:31:29] [WEB-SHELL] 前端触发调用 Shell: report.sh
+[2026-05-30 18:31:39] [WEB-SHELL] 前端触发调用 Shell: monitor.sh
+[2026-05-30 18:31:39] [MONITOR] HIGH_RISK SUBJECT=计算机图形学 STRESS=30.00
+[2026-05-30 18:31:47] [WEB-SHELL] 前端触发调用 Shell: backup.sh
+[2026-05-30 18:31:47] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_183147.tar.gz
+[2026-05-30 18:36:08] [WEB-SHELL] 前端触发调用 Shell: report.sh
+[2026-05-30 19:52:39] [BUSINESS] ADD_EXAM USER_ID=1 SUBJECT=计算机网络
+[2026-05-30 20:05:46] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_200546.tar.gz
+[2026-05-30 20:05:53] [MONITOR] HIGH_RISK SUBJECT=计算机图形学 STRESS=30.00
+[2026-05-30 20:06:49] [BUSINESS] PUNCH USER_ID=1 SUBJECT=计算机图形学 DURATION=30
+[2026-05-30 20:06:56] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_200656.tar.gz
+[2026-05-30 20:06:59] [MONITOR] HIGH_RISK SUBJECT=计算机图形学 STRESS=15.00
+[2026-05-30 20:07:16] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_200716.tar.gz
+[2026-05-30 20:07:19] [MONITOR] HIGH_RISK SUBJECT=计算机图形学 STRESS=15.00
+[2026-05-30 20:11:18] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_201118.tar.gz
+[2026-05-30 20:16:54] [MONITOR] HIGH_RISK SUBJECT=计算机图形学 STRESS=15.00
+[2026-05-30 21:09:27] [MONITOR] HIGH_RISK SUBJECT=计算机图形学 STRESS=15.00
+[2026-05-30 21:09:34] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_210934.tar.gz
+[2026-05-30 21:31:40] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_213140.tar.gz
+[2026-05-30 21:35:22] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_213522.tar.gz
+[2026-05-30 21:44:48] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_214448.tar.gz
+[2026-05-30 22:17:22] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_221722.tar.gz
+[2026-05-30 22:20:40] [BUSINESS] PUNCH USER_ID=1 SUBJECT=计算机网络 DURATION=5
+[2026-05-30 22:21:56] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_222156.tar.gz
+[2026-05-30 22:26:21] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_222621.tar.gz
+[2026-05-30 22:26:53] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_222653.tar.gz
+[2026-05-30 22:27:41] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_222741.tar.gz
+[2026-05-30 22:30:02] [WEB-AUTH] 登录成功 USERNAME=loo
+[2026-05-30 22:30:39] [BUSINESS] ADD_EXAM USER_ID=1 SUBJECT=操作系统
+[2026-05-30 22:30:50] [BUSINESS] PUNCH USER_ID=1 SUBJECT=操作系统 DURATION=30
+[2026-05-30 22:32:17] [BACKUP-DAEMON] 安全快照归档成功: termplan_snapshot_20260530_223217.tar.gz
+[2026-05-30 22:32:27] [BUSINESS] DELETE_EXAM USER_ID=1 SUBJECT=操作系统
