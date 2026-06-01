@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TermPlan</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #f4f3ef;
+      color: #333333;
+      font-family: -apple-system, sans-serif;
+    }
+
+    .morandi-card {
+      background-color: #fafaf9;
+      border: 1px solid rgba(189, 178, 166, 0.4);
+      box-shadow: 0 10px 30px rgba(138, 131, 124, 0.1);
+    }
+
+    .morandi-input {
+      background-color: #f1ede7;
+      border: 1px solid rgba(189, 178, 166, 0.5);
+      transition: all 0.2s ease;
+    }
+
+    .morandi-input:focus {
+      border-color: #7b94a1;
+      background-color: #ffffff;
+      outline: none;
+    }
+
+    .tab-btn {
+      color: #9c958d;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      color: #2c2c2c;
+      font-weight: 600;
+      border-bottom-color: #829ba7;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center">
+  <div class="w-full max-w-sm p-8 rounded-3xl morandi-card">
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-serif text-[#2c2c2c] tracking-wide">TermPlan</h1>
+      <p class="text-xs text-[#7a736c] mt-2 tracking-widest uppercase">基于Linux的期末倒计时工具</p>
+    </div>
+
+    <div class="flex justify-center space-x-8 text-sm mb-6 border-b border-gray-200 pb-2">
+      <button id="tab-login" class="tab-btn active pb-1" onclick="switchAuth('login')">登录</button>
+      <button id="tab-register" class="tab-btn pb-1" onclick="switchAuth('register')">注册</button>
+    </div>
+
+    <form id="authForm" onsubmit="handleAuth(event)" class="space-y-5">
+      <div>
+        <label class="text-[10px] font-bold text-[#7a736c] block mb-1.5 ml-1 uppercase tracking-wider">用户名：</label>
+        <input type="text" id="username" class="morandi-input w-full rounded-xl px-4 py-3 text-sm" placeholder="输入用户名"
+          required autocomplete="off">
+      </div>
+      <div>
+        <label class="text-[10px] font-bold text-[#7a736c] block mb-1.5 ml-1 uppercase tracking-wider">密码：</label>
+        <input type="password" id="password" class="morandi-input w-full rounded-xl px-4 py-3 text-sm"
+          placeholder="输入密码" required>
+      </div>
+
+      <div id="messageBox" class="hidden text-xs p-3 rounded-xl text-center"></div>
+
+      <button type="submit" id="submitBtn"
+        class="w-full bg-[#829ba7] hover:bg-[#728a95] text-white text-sm font-bold py-4 rounded-xl transition-all duration-300 shadow-md">
+        登录
+      </button>
+    </form>
+
+    <p class="text-center text-[10px] text-[#9c958d] mt-8 font-mono">
+      开启高效复习之旅
+    </p>
+  </div>
+
+  <script>
+
+    let currentAction = 'login';
+
+
+    function switchAuth(action) {
+      currentAction = action;
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const submitBtn = document.getElementById('submitBtn');
+      const msgBox = document.getElementById('messageBox');
+
+      msgBox.classList.add('hidden');
+
+      if (action === 'login') {
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+        submitBtn.innerText = '登录';
+        submitBtn.style.backgroundColor = '#829ba7';
+      } else {
+        tabRegister.classList.add('active');
+        tabLogin.classList.remove('active');
+        submitBtn.innerText = '注册';
+        submitBtn.style.backgroundColor = '#9ca89a';
+      }
+    }
+
+
+    function handleAuth(event) {
+      event.preventDefault();
+
+      const usernameVal = document.getElementById('username').value;
+      const passwordVal = document.getElementById('password').value;
+      const msgBox = document.getElementById('messageBox');
+
+
+      fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: currentAction,
+          username: usernameVal,
+          password: passwordVal
+        })
+      })
+        .then(response => response.json())
+        .then(data => {
+          msgBox.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'bg-green-50', 'text-green-700');
+
+          if (data.status === 'success') {
+
+            msgBox.classList.add('bg-green-50', 'text-green-700');
+            msgBox.innerText = data.msg;
+
+            if (currentAction === 'login') {
+
+              setTimeout(() => {
+                window.location.href = '/';
+              }, 1000);
+            } else {
+
+              document.getElementById('authForm').reset();
+              setTimeout(() => { switchAuth('login'); }, 1500);
+            }
+          } else {
+
+            msgBox.classList.add('bg-red-50', 'text-red-700');
+            msgBox.innerText = data.msg;
+          }
+        })
+        .catch(err => {
+          msgBox.classList.remove('hidden');
+          msgBox.classList.add('bg-red-50', 'text-red-700');
+          msgBox.innerText = '网络连接失败，请检查后端服务';
+        });
+    }
+  </script>
+</body>
+
+</html>
